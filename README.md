@@ -67,6 +67,6 @@ curl "http://localhost:8000/predict?formula=SrTiO3"
 
 ## References
 
-- [JARVIS-Tools](https://github.com/usnistgov/jarvis)
+- [JARVIS-Tools](https://github.com/atomgptlab/jarvis)
 - [JARVIS Leaderboard](https://github.com/atomgptlab/jarvis_leaderboard)
 - [AtomGPTLab](https://atomgpt.org)
