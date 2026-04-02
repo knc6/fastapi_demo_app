@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Formation Energy Predictor</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0e11;
+    --surface: #14171c;
+    --surface2: #1c2028;
+    --border: #2a2f3a;
+    --text: #e8eaed;
+    --text-dim: #8b919e;
+    --accent: #4fd1c5;
+    --accent-dim: #2a7a72;
+    --negative: #f56565;
+    --positive: #48bb78;
+    --glow: rgba(79, 209, 197, 0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Subtle grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 60px 60px;
+    opacity: 0.15;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 60px 24px;
+  }
+
+  header {
+    margin-bottom: 48px;
+  }
+
+  h1 {
+    font-family: 'Instrument Serif', serif;
+    font-weight: 400;
+    font-size: 2.8rem;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+
+  h1 span {
+    color: var(--accent);
+    font-style: italic;
+  }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 0.82rem;
+    line-height: 1.6;
+    max-width: 480px;
+  }
+
+  .subtitle a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid var(--accent-dim);
+  }
+
+  /* Input section */
+  .input-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+
+  .input-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 12px;
+  }
+
+  .formula-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-family: 'DM Mono', monospace;
+    font-size: 1.1rem;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .formula-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--glow);
+  }
+
+  .formula-input::placeholder { color: #4a4f5c; }
+
+  .predict-btn {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 8px;
+    padding: 14px 28px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: transform 0.15s, opacity 0.15s;
+    white-space: nowrap;
+  }
+
+  .predict-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+  .predict-btn:active { transform: translateY(0); }
+  .predict-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* Quick examples */
+  .examples {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+  }
+
+  .example-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+
+  .example-chip:hover {
+    color: var(--accent);
+    border-color: var(--accent-dim);
+  }
+
+  /* Result */
+  .result-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: opacity 0.3s;
+  }
+
+  .result-section.hidden { display: none; }
+
+  .result-header {
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .result-header .label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+  }
+
+  .result-header .status {
+    font-size: 0.72rem;
+    padding: 3px 10px;
+    border-radius: 4px;
+    background: rgba(79, 209, 197, 0.12);
+    color: var(--accent);
+  }
+
+  .result-body {
+    padding: 28px;
+  }
+
+  .result-formula {
+    font-family: 'Instrument Serif', serif;
+    font-size: 2rem;
+    margin-bottom: 20px;
+    letter-spacing: 0.02em;
+  }
+
+  .result-value {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .result-number {
+    font-size: 2.4rem;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+  }
+
+  .result-number.negative { color: var(--positive); }
+  .result-number.positive { color: var(--negative); }
+
+  .result-unit {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+  }
+
+  .result-note {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 12px;
+    line-height: 1.5;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Error */
+  .error-msg {
+    background: rgba(245, 101, 101, 0.08);
+    border: 1px solid rgba(245, 101, 101, 0.25);
+    border-radius: 8px;
+    padding: 14px 20px;
+    color: var(--negative);
+    font-size: 0.82rem;
+    margin-bottom: 24px;
+  }
+
+  .error-msg.hidden { display: none; }
+
+  /* Batch section */
+  .batch-section {
+    margin-top: 40px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+  }
+
+  .batch-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+
+  .batch-textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.88rem;
+    color: var(--text);
+    outline: none;
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .batch-textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--glow);
+  }
+
+  .batch-textarea::placeholder { color: #4a4f5c; }
+
+  .batch-btn {
+    margin-top: 12px;
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+    border-radius: 8px;
+    padding: 10px 22px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .batch-btn:hover { background: var(--glow); }
+
+  /* Batch results table */
+  .batch-results { margin-top: 20px; }
+  .batch-results.hidden { display: none; }
+
+  .batch-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+
+  .batch-table th {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+    font-weight: 500;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .batch-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .batch-table tr:last-child td { border-bottom: none; }
+
+  /* API info */
+  .api-section {
+    margin-top: 40px;
+    padding: 24px 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+
+  .api-section .label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+  }
+
+  .api-example {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 16px 18px;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    line-height: 1.7;
+    overflow-x: auto;
+    margin-bottom: 10px;
+  }
+
+  .api-example:last-child { margin-bottom: 0; }
+  .api-example .hl { color: var(--accent); }
+
+  /* Footer */
+  footer {
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  footer a { color: var(--accent); text-decoration: none; }
+
+  /* Loading spinner */
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--bg);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 540px) {
+    h1 { font-size: 2rem; }
+    .input-row { flex-direction: column; }
+    .container { padding: 36px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Formation <span>Energy</span><br>Predictor</h1>
+    <p class="subtitle">
+      Random Forest model trained on
+      <a href="https://github.com/atomgptlab/jarvis_leaderboard" target="_blank">JARVIS Leaderboard</a>
+      SSUB benchmark using element fraction descriptors.
+    </p>
+  </header>
+
+  <div class="input-section">
+    <div class="input-label">Chemical Formula</div>
+    <div class="input-row">
+      <input
+        type="text"
+        class="formula-input"
+        id="formulaInput"
+        placeholder="e.g. SrTiO3"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button class="predict-btn" id="predictBtn" onclick="predict()">Predict</button>
+    </div>
+    <div class="examples">
+      <span class="example-chip" onclick="tryExample(this)">GaN</span>
+      <span class="example-chip" onclick="tryExample(this)">MoS2</span>
+      <span class="example-chip" onclick="tryExample(this)">SrTiO3</span>
+      <span class="example-chip" onclick="tryExample(this)">Al2O3</span>
+      <span class="example-chip" onclick="tryExample(this)">CaTiO3</span>
+      <span class="example-chip" onclick="tryExample(this)">Si3N4</span>
+    </div>
+  </div>
+
+  <div class="error-msg hidden" id="errorMsg"></div>
+
+  <div class="result-section hidden" id="resultSection">
+    <div class="result-header">
+      <span class="label">Prediction Result</span>
+      <span class="status">RF · 200 trees</span>
+    </div>
+    <div class="result-body">
+      <div class="result-formula" id="resultFormula"></div>
+      <div class="result-value">
+        <span class="result-number" id="resultNumber"></span>
+        <span class="result-unit">eV/atom</span>
+      </div>
+      <div class="result-note">
+        Formation energy per atom. Negative values indicate thermodynamic stability
+        relative to elemental references.
+      </div>
+    </div>
+  </div>
+
+  <div class="batch-section">
+    <div class="batch-label">Batch Prediction</div>
+    <textarea
+      class="batch-textarea"
+      id="batchInput"
+      placeholder="One formula per line:&#10;GaN&#10;MoS2&#10;Al2O3"
+    ></textarea>
+    <button class="batch-btn" onclick="predictBatch()">Predict Batch</button>
+    <div class="batch-results hidden" id="batchResults">
+      <table class="batch-table">
+        <thead><tr><th>Formula</th><th>Ef (eV/atom)</th></tr></thead>
+        <tbody id="batchBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="api-section">
+    <div class="label">API Endpoints</div>
+    <div class="api-example">
+      <span class="hl">GET</span> /predict?formula=<span class="hl">GaN</span>
+    </div>
+    <div class="api-example">
+      <span class="hl">POST</span> /predict_batch<br>
+      {"formulas": ["<span class="hl">GaN</span>", "<span class="hl">MoS2</span>", "<span class="hl">Al2O3</span>"]}
+    </div>
+    <div class="api-example">
+      <span class="hl">GET</span> /docs &nbsp;— Swagger UI
+    </div>
+  </div>
+
+  <footer>
+    Built with <a href="https://fastapi.tiangolo.com" target="_blank">FastAPI</a> +
+    <a href="https://github.com/usnistgov/jarvis" target="_blank">JARVIS</a> ·
+    <a href="https://atomgpt.org" target="_blank">AtomGPTLab</a>
+  </footer>
+</div>
+
+<script>
+const API = window.location.origin;
+const input = document.getElementById('formulaInput');
+const btn = document.getElementById('predictBtn');
+
+input.addEventListener('keydown', e => { if (e.key === 'Enter') predict(); });
+
+function tryExample(el) {
+  input.value = el.textContent;
+  predict();
+}
+
+async function predict() {
+  const formula = input.value.trim();
+  if (!formula) return;
+
+  const err = document.getElementById('errorMsg');
+  const res = document.getElementById('resultSection');
+  err.classList.add('hidden');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>...';
+
+  try {
+    const r = await fetch(`${API}/predict?formula=${encodeURIComponent(formula)}`);
+    const data = await r.json();
+
+    if (data.error) {
+      err.textContent = data.error;
+      err.classList.remove('hidden');
+      res.classList.add('hidden');
+    } else {
+      const val = data.predicted_formation_energy_eV_per_atom;
+      document.getElementById('resultFormula').textContent = formula;
+      const numEl = document.getElementById('resultNumber');
+      numEl.textContent = val.toFixed(4);
+      numEl.className = 'result-number ' + (val < 0 ? 'negative' : 'positive');
+      res.classList.remove('hidden');
+    }
+  } catch (e) {
+    err.textContent = 'Connection error — is the server running?';
+    err.classList.remove('hidden');
+    res.classList.add('hidden');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Predict';
+}
+
+async function predictBatch() {
+  const text = document.getElementById('batchInput').value.trim();
+  if (!text) return;
+
+  const formulas = text.split('\n').map(s => s.trim()).filter(Boolean);
+  const err = document.getElementById('errorMsg');
+  const batchRes = document.getElementById('batchResults');
+  err.classList.add('hidden');
+
+  try {
+    const r = await fetch(`${API}/predict_batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ formulas }),
+    });
+    const data = await r.json();
+
+    if (data.error) {
+      err.textContent = data.error;
+      err.classList.remove('hidden');
+      batchRes.classList.add('hidden');
+      return;
+    }
+
+    const tbody = document.getElementById('batchBody');
+    tbody.innerHTML = data.results.map(r => {
+      const val = r.predicted_formation_energy_eV_per_atom;
+      const color = val < 0 ? 'var(--positive)' : 'var(--negative)';
+      return `<tr><td>${r.formula}</td><td style="color:${color}">${val.toFixed(4)}</td></tr>`;
+    }).join('');
+    batchRes.classList.remove('hidden');
+  } catch (e) {
+    err.textContent = 'Connection error — is the server running?';
+    err.classList.remove('hidden');
+  }
+}
+</script>
+</body>
+</html>
